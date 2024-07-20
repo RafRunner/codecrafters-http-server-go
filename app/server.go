@@ -49,8 +49,8 @@ func main() {
 	if verb == "GET" && path == "/" {
 		response = "HTTP/1.1 200 OK\r\n\r\n"
 	} else if verb == "GET" && strings.HasPrefix(path, "/echo/") {
-		args := path[6:]
-		response = "HTTP/1.1 200 OK\r\n\r\n" + args
+		arg := path[6:]
+		response = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: " + strconv.Itoa(len(arg)) + "\r\n\r\n" + arg
 	} else {
 		response = "HTTP/1.1 404 Not Found\r\n\r\n"
 	}
