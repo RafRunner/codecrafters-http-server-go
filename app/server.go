@@ -5,6 +5,7 @@ import (
 	"net"
 	"os"
 	"strconv"
+	"strings"
 )
 
 func main() {
@@ -24,9 +25,26 @@ func main() {
 	}
 	defer conn.Close()
 
-	fmt.Print("Connection accepted")
+	fmt.Println("Connection accepted")
 
-	_, err = conn.Write([]byte("HTTP/1.1 200 OK\r\n\r\n"))
+	request := make([]byte, 1024)
+
+	_, err = conn.Read(request)
+	if err != nil {
+		fmt.Println("Error reading from connection: ", err.Error())
+		os.Exit(1)
+	}
+
+	fmt.Println(string(request))
+
+	var response []byte
+	if strings.HasPrefix(string(request), "GET / ") {
+		response = []byte("HTTP/1.1 200 OK\r\n\r\n")
+	} else {
+		response = []byte("HTTP/1.1 404 Not Found\r\n\r\n")
+	}
+
+	_, err = conn.Write(response)
 	if err != nil {
 		fmt.Println("Error writing response: ", err.Error())
 		os.Exit(1)
