@@ -12,16 +12,23 @@ func main() {
 
 	l, err := net.Listen("tcp", "0.0.0.0:"+strconv.Itoa(port))
 	if err != nil {
-		fmt.Printf("Failed to bind to port %d", port)
+		fmt.Println("Failed to bind to port ", port)
 		os.Exit(1)
 	}
-	fmt.Printf("Server listening on port %d", port)
+	fmt.Println("Server listening on port ", port)
 
-	_, err = l.Accept()
+	conn, err := l.Accept()
 	if err != nil {
 		fmt.Println("Error accepting connection: ", err.Error())
 		os.Exit(1)
 	}
+	defer conn.Close()
 
 	fmt.Print("Connection accepted")
+
+	_, err = conn.Write([]byte("HTTP/1.1 200 OK\r\n\r\n"))
+	if err != nil {
+		fmt.Println("Error writing response: ", err.Error())
+		os.Exit(1)
+	}
 }
