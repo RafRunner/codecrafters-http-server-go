@@ -21,7 +21,7 @@ func main() {
 	conn, err := l.Accept()
 	if err != nil {
 		fmt.Println("Error accepting connection: ", err.Error())
-		os.Exit(1)
+		return
 	}
 	defer conn.Close()
 
@@ -32,21 +32,32 @@ func main() {
 	_, err = conn.Read(request)
 	if err != nil {
 		fmt.Println("Error reading from connection: ", err.Error())
-		os.Exit(1)
+		return
 	}
 
-	fmt.Println(string(request))
+	req := strings.Split(string(request), "\r\n")
+	parts := strings.Split(req[0], " ")
 
-	var response []byte
-	if strings.HasPrefix(string(request), "GET / ") {
-		response = []byte("HTTP/1.1 200 OK\r\n\r\n")
+	if len(parts) != 3 {
+		fmt.Println("Malformed request. Expected 3 parts on first line: verb, path and protocol version")
+		return
+	}
+
+	verb, path := parts[0], parts[1]
+
+	var response string
+	if verb == "GET" && path == "/" {
+		response = "HTTP/1.1 200 OK\r\n\r\n"
+	} else if verb == "GET" && strings.HasPrefix(path, "/echo/") {
+		args := path[6:]
+		response = "HTTP/1.1 200 OK\r\n\r\n" + args
 	} else {
-		response = []byte("HTTP/1.1 404 Not Found\r\n\r\n")
+		response = "HTTP/1.1 404 Not Found\r\n\r\n"
 	}
 
-	_, err = conn.Write(response)
+	_, err = conn.Write([]byte(response))
 	if err != nil {
 		fmt.Println("Error writing response: ", err.Error())
-		os.Exit(1)
+		return
 	}
 }
