@@ -33,16 +33,18 @@ func main() {
 	var response *model.HttpResponse
 
 	if err != nil {
-		response = model.MakeResponse(model.INTERNAL_SERVER_ERROR, []byte(err.Error()))
+		response = model.MakeResponse(model.BAD_REQUEST, []byte(err.Error()))
 	} else {
 		verb, path := request.Verb, request.Path
 
-		if verb == "GET" && path == "/" {
+		if verb == model.GET && path == "/" {
 			response = model.MakeResponse(model.OK, []byte{})
-		} else if verb == "GET" && strings.HasPrefix(path, "/echo/") {
+		} else if verb == model.GET && strings.HasPrefix(path, "/echo/") {
 			arg := path[6:]
-			response = model.MakeResponse(model.OK, []byte(arg))
-			response.AddHeader("Content-Type", "text/plain")
+			response = model.MakePlainTextResponse(model.OK, arg)
+		} else if verb == model.GET && path == "/user-agent" {
+			userAgent := request.Headers["user-agent"]
+			response = model.MakePlainTextResponse(model.OK, userAgent[0].Value)
 		} else {
 			response = model.MakeResponse(model.NOT_FOUND, []byte{})
 		}

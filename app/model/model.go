@@ -132,6 +132,7 @@ const (
 	NO_CONTENT            HttpStatus = 204
 	BAD_REQUEST           HttpStatus = 400
 	NOT_FOUND             HttpStatus = 404
+	METHOD_NOT_ALLOWED    HttpStatus = 405
 	INTERNAL_SERVER_ERROR HttpStatus = 500
 )
 
@@ -145,6 +146,8 @@ func (s *HttpStatus) GetReasonPhrase() string {
 		return "Bad Request"
 	case NOT_FOUND:
 		return "Not Found"
+	case METHOD_NOT_ALLOWED:
+		return "Method Not Allowed"
 	case INTERNAL_SERVER_ERROR:
 		return "Internal Server Error"
 	default:
@@ -172,6 +175,13 @@ func MakeResponse(status HttpStatus, body []byte) *HttpResponse {
 	if len(body) > 0 {
 		response.AddHeader("Content-Length", strconv.Itoa(len(body)))
 	}
+
+	return response
+}
+
+func MakePlainTextResponse(status HttpStatus, body string) *HttpResponse {
+	response := MakeResponse(status, []byte(body))
+	response.AddHeader("Content-Type", "text/plain")
 
 	return response
 }
