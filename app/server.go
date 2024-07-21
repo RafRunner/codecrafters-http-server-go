@@ -15,25 +15,38 @@ func main() {
 
 	l, err := net.Listen("tcp", "0.0.0.0:"+strconv.Itoa(port))
 	if err != nil {
-		fmt.Println("Failed to bind to port ", port)
+		fmt.Printf("Failed to bind to port %d: %v", port, err)
 		os.Exit(1)
 	}
-	fmt.Println("Server listening on port ", port)
+	defer l.Close()
+	fmt.Printf("Server listening on port %d", port)
 
-	conn, err := l.Accept()
-	if err != nil {
-		fmt.Println("Error accepting connection: ", err.Error())
-		return
+	for {
+		conn, err := l.Accept()
+		if err != nil {
+			fmt.Printf("Error accepting connection: %v", err)
+			continue
+		}
+		go handleClient(conn)
 	}
-	defer conn.Close()
+}
 
+func handleClient(conn net.Conn) {
+	defer conn.Close()
 	fmt.Println("Connection accepted")
 
+	err := handleConnection(conn)
+	if err != nil {
+		fmt.Printf("Error handling connection: %v\n", err)
+	}
+}
+
+func handleConnection(conn net.Conn) error {
 	request, err := model.ReadHttpRequest(conn)
 	var response *model.HttpResponse
 
 	if err != nil {
-		response = model.MakeResponse(model.BAD_REQUEST, []byte(err.Error()))
+		response = model.MakePlainTextResponse(model.BAD_REQUEST, err.Error())
 	} else {
 		verb, path := request.Verb, request.Path
 
@@ -52,7 +65,8 @@ func main() {
 
 	_, err = conn.Write(response.WriteResponse())
 	if err != nil {
-		fmt.Println("Error writing response: ", err.Error())
-		return
+		return fmt.Errorf("error writing response: %w", err)
 	}
+
+	return nil
 }
