@@ -6,6 +6,8 @@ import (
 	"os"
 	"strconv"
 	"strings"
+
+	"github.com/codecrafters-io/http-server-starter-go/app/model"
 )
 
 func main() {
@@ -27,35 +29,26 @@ func main() {
 
 	fmt.Println("Connection accepted")
 
-	request := make([]byte, 1024)
+	request, err := model.ReadHttpRequest(conn)
+	var response *model.HttpResponse
 
-	_, err = conn.Read(request)
 	if err != nil {
-		fmt.Println("Error reading from connection: ", err.Error())
-		return
-	}
-
-	req := strings.Split(string(request), "\r\n")
-	parts := strings.Split(req[0], " ")
-
-	if len(parts) != 3 {
-		fmt.Println("Malformed request. Expected 3 parts on first line: verb, path and protocol version")
-		return
-	}
-
-	verb, path := parts[0], parts[1]
-
-	var response string
-	if verb == "GET" && path == "/" {
-		response = "HTTP/1.1 200 OK\r\n\r\n"
-	} else if verb == "GET" && strings.HasPrefix(path, "/echo/") {
-		arg := path[6:]
-		response = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: " + strconv.Itoa(len(arg)) + "\r\n\r\n" + arg
+		response = model.MakeResponse(model.INTERNAL_SERVER_ERROR, []byte(err.Error()))
 	} else {
-		response = "HTTP/1.1 404 Not Found\r\n\r\n"
+		verb, path := request.Verb, request.Path
+
+		if verb == "GET" && path == "/" {
+			response = model.MakeResponse(model.OK, []byte{})
+		} else if verb == "GET" && strings.HasPrefix(path, "/echo/") {
+			arg := path[6:]
+			response = model.MakeResponse(model.OK, []byte(arg))
+			response.AddHeader("Content-Type", "text/plain")
+		} else {
+			response = model.MakeResponse(model.NOT_FOUND, []byte{})
+		}
 	}
 
-	_, err = conn.Write([]byte(response))
+	_, err = conn.Write(response.WriteResponse())
 	if err != nil {
 		fmt.Println("Error writing response: ", err.Error())
 		return
