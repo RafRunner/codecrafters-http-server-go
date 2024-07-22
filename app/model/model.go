@@ -128,7 +128,7 @@ func ReadHttpRequest(conn net.Conn) (*HttpRequest, error) {
 
 		_, err = reader.Read(body)
 		if err != nil {
-			return nil, fmt.Errorf("error reading body")
+			return nil, fmt.Errorf("error reading body: %w", err)
 		}
 	} else {
 		body = []byte{}
@@ -234,4 +234,30 @@ func (r *HttpResponse) WriteResponse() []byte {
 
 	// Append the body to the response
 	return append([]byte(responseLine), r.Body...)
+}
+
+func (r *HttpResponse) CompressBody(request HttpRequest) {
+	accepted := request.Headers["accept-encoding"]
+
+	if len(accepted) == 0 {
+		return
+	}
+	supportedAlgs := make([]string, 0)
+
+	for _, alg := range accepted {
+		supportedAlgs = append(supportedAlgs, alg.Value)
+	}
+
+	if contains(supportedAlgs, "gzip") {
+		r.AddHeader("Content-Encoding", "gzip")
+	}
+}
+
+func contains[T comparable](slice []T, element T) bool {
+	for _, it := range slice {
+		if it == element {
+			return true
+		}
+	}
+	return false
 }

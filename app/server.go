@@ -113,6 +113,7 @@ func handleConnection(conn net.Conn, fileDir string) error {
 		}
 	}
 
+	response.CompressBody(*request)
 	_, err = conn.Write(response.WriteResponse())
 	if err != nil {
 		return fmt.Errorf("error writing response: %w", err)
