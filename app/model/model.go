@@ -2,6 +2,8 @@ package model
 
 import (
 	"bufio"
+	"bytes"
+	"compress/gzip"
 	"errors"
 	"fmt"
 	"net"
@@ -217,7 +219,20 @@ func MakeFileResponse(file []byte) *HttpResponse {
 
 // AddHeader adds a header to the HttpResponse.
 func (r *HttpResponse) AddHeader(key, val string) {
-	r.Headers[key] = append(r.Headers[key], *MakeHeader(key, val))
+	lowerKey := strings.ToLower(key)
+	r.Headers[lowerKey] = append(r.Headers[lowerKey], *MakeHeader(key, val))
+}
+
+// SetHeader adds or alters a existing header to a value
+func (r *HttpResponse) SetHeader(key, val string) {
+	lowerKey := strings.ToLower(key)
+	existing := r.Headers[lowerKey]
+
+	if len(existing) == 0 {
+		r.AddHeader(key, val)
+	} else {
+		existing[0].Value = val
+	}
 }
 
 // WriteResponse generates the HTTP response as a byte array.
@@ -237,6 +252,10 @@ func (r *HttpResponse) WriteResponse() []byte {
 }
 
 func (r *HttpResponse) CompressBody(request HttpRequest) {
+	if len(r.Body) == 0 {
+		return
+	}
+
 	accepted := request.Headers["accept-encoding"]
 
 	if len(accepted) == 0 {
@@ -251,8 +270,34 @@ func (r *HttpResponse) CompressBody(request HttpRequest) {
 	}
 
 	if contains(supportedAlgs, "gzip") {
+		// Compress the body using gzip
+		compressedBody, err := compressGzip(r.Body)
+		if err != nil {
+			fmt.Printf("Failed to compress body: %v\n", err)
+			return
+		}
+
+		r.Body = compressedBody
+		r.SetHeader("Content-Length", strconv.Itoa(len(r.Body)))
 		r.AddHeader("Content-Encoding", "gzip")
 	}
+}
+
+func compressGzip(data []byte) ([]byte, error) {
+	var buf bytes.Buffer
+	writer := gzip.NewWriter(&buf)
+
+	_, err := writer.Write(data)
+	if err != nil {
+		return nil, fmt.Errorf("failed to write data to gzip writer: %w", err)
+	}
+
+	err = writer.Close()
+	if err != nil {
+		return nil, fmt.Errorf("failed to close gzip writer: %w", err)
+	}
+
+	return buf.Bytes(), nil
 }
 
 func contains[T comparable](slice []T, element T) bool {
