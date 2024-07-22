@@ -244,8 +244,10 @@ func (r *HttpResponse) CompressBody(request HttpRequest) {
 	}
 	supportedAlgs := make([]string, 0)
 
-	for _, alg := range accepted {
-		supportedAlgs = append(supportedAlgs, alg.Value)
+	for _, acceptedHeader := range accepted {
+		for _, alg := range strings.Split(acceptedHeader.Value, ",") {
+			supportedAlgs = append(supportedAlgs, strings.TrimSpace(alg))
+		}
 	}
 
 	if contains(supportedAlgs, "gzip") {
