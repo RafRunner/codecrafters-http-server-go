@@ -34,7 +34,7 @@ func main() {
 		os.Exit(1)
 	}
 	defer l.Close()
-	fmt.Printf("Server listening on port %d\n", port)
+	fmt.Printf("Server listening on port %d, file dir is: '%s'\n", port, *directory)
 
 	for {
 		conn, err := l.Accept()
@@ -78,21 +78,36 @@ func handleConnection(conn net.Conn, fileDir string) error {
 			} else {
 				response = model.MakePlainTextResponse(model.BAD_REQUEST, "User-Agent header not found")
 			}
-		} else if verb == model.GET && strings.HasPrefix(path, "/files/") && fileDir != "" {
+		} else if strings.HasPrefix(path, "/files/") && fileDir != "" {
 			fileName := path[7:]
 			filePath := fileDir + fileName
 
-			file, err := os.Stat(filePath)
-			if err != nil || file.IsDir() {
-				response = model.MakeResponse(model.NOT_FOUND, []byte{})
-			} else {
-				fileBytes, err := os.ReadFile(filePath)
+			switch verb {
+			case model.GET:
+				file, err := os.Stat(filePath)
+				if err != nil || file.IsDir() {
+					response = model.MakeResponse(model.NOT_FOUND, []byte{})
+				} else {
+					fileBytes, err := os.ReadFile(filePath)
+					if err != nil {
+						response = model.MakePlainTextResponse(model.INTERNAL_SERVER_ERROR, err.Error())
+					} else {
+						response = model.MakeFileResponse(fileBytes)
+					}
+				}
+			case model.POST:
+				fileBytes := request.Body
+
+				err = os.WriteFile(filePath, fileBytes, 0644)
 				if err != nil {
 					response = model.MakePlainTextResponse(model.INTERNAL_SERVER_ERROR, err.Error())
 				} else {
-					response = model.MakeFileResponse(fileBytes)
+					response = model.MakeResponse(model.CREATED, []byte{})
 				}
+			default:
+				response = model.MakeResponse(model.METHOD_NOT_ALLOWED, []byte{})
 			}
+
 		} else {
 			response = model.MakeResponse(model.NOT_FOUND, []byte{})
 		}

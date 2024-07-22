@@ -62,6 +62,7 @@ type HttpRequest struct {
 	Path    string
 	Version HttpVersion
 	Headers map[string][]HeaderVal
+	Body    []byte
 }
 
 func ReadHttpRequest(conn net.Conn) (*HttpRequest, error) {
@@ -116,11 +117,29 @@ func ReadHttpRequest(conn net.Conn) (*HttpRequest, error) {
 		headers[lowerKey] = append(headers[lowerKey], *header)
 	}
 
+	var body []byte
+	contentLength := headers["content-length"]
+	if len(contentLength) > 0 {
+		toRead, err := strconv.Atoi(contentLength[0].Value)
+		if err != nil {
+			return nil, fmt.Errorf("content-length contains invalid number")
+		}
+		body = make([]byte, toRead)
+
+		_, err = reader.Read(body)
+		if err != nil {
+			return nil, fmt.Errorf("error reading body")
+		}
+	} else {
+		body = []byte{}
+	}
+
 	return &HttpRequest{
 		Verb:    verb,
 		Path:    path,
 		Version: version,
 		Headers: headers,
+		Body:    body,
 	}, nil
 }
 
@@ -129,6 +148,7 @@ type HttpStatus int
 
 const (
 	OK                    HttpStatus = iota + 200
+	CREATED               HttpStatus = 201
 	NO_CONTENT            HttpStatus = 204
 	BAD_REQUEST           HttpStatus = 400
 	NOT_FOUND             HttpStatus = 404
@@ -140,6 +160,8 @@ func (s *HttpStatus) GetReasonPhrase() string {
 	switch *s {
 	case OK:
 		return "OK"
+	case CREATED:
+		return "Created"
 	case NO_CONTENT:
 		return "No Content"
 	case BAD_REQUEST:
