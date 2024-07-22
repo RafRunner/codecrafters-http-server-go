@@ -186,6 +186,13 @@ func MakePlainTextResponse(status HttpStatus, body string) *HttpResponse {
 	return response
 }
 
+func MakeFileResponse(file []byte) *HttpResponse {
+	response := MakeResponse(OK, file)
+	response.AddHeader("Content-Type", "application/octet-stream")
+
+	return response
+}
+
 // AddHeader adds a header to the HttpResponse.
 func (r *HttpResponse) AddHeader(key, val string) {
 	r.Headers[key] = append(r.Headers[key], *MakeHeader(key, val))
