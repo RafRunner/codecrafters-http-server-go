@@ -49,6 +49,14 @@ const (
 	HEAD    HttpVerb = "HEAD"
 )
 
+func (v HttpVerb) IsValid() bool {
+	switch v {
+	case GET, POST, PUT, DELETE, PATCH, OPTIONS, HEAD:
+		return true
+	}
+	return false
+}
+
 // HttpVersion represents the version of the HTTP protocol.
 type HttpVersion string
 
@@ -57,6 +65,15 @@ const (
 	HTTP11 HttpVersion = "HTTP/1.1"
 	HTTP20 HttpVersion = "HTTP/2.0"
 )
+
+func (v HttpVersion) IsValid() bool {
+	switch v {
+	case HTTP10, HTTP11, HTTP20:
+		return true
+	default:
+		return false
+	}
+}
 
 // HttpRequest represents an HTTP request.
 type HttpRequest struct {
@@ -81,20 +98,14 @@ func ReadHttpRequest(conn net.Conn) (*HttpRequest, error) {
 	}
 
 	verb := HttpVerb(parts[0])
-	switch verb {
-	case GET, POST, PUT, DELETE, PATCH, OPTIONS, HEAD:
-		// valid verb
-	default:
+	if !verb.IsValid() {
 		return nil, fmt.Errorf("unknown HTTP verb: %s", parts[0])
 	}
 
 	path := parts[1]
 
 	version := HttpVersion(parts[2])
-	switch version {
-	case HTTP10, HTTP11, HTTP20:
-		// valid version
-	default:
+	if !version.IsValid() {
 		return nil, fmt.Errorf("unknown HTTP version: %s", parts[2])
 	}
 
