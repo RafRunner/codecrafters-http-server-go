@@ -3,16 +3,14 @@ package main
 import (
 	"flag"
 	"fmt"
-	"net"
 	"os"
-	"strconv"
-	"strings"
 
 	"github.com/codecrafters-io/http-server-starter-go/app/model"
+	"github.com/codecrafters-io/http-server-starter-go/app/server"
 )
 
 func main() {
-	port := 4221
+	var port uint16 = 4221
 	directory := flag.String("directory", "", "Directory where to look for files")
 	flag.Parse()
 
@@ -28,98 +26,59 @@ func main() {
 		}
 	}
 
-	l, err := net.Listen("tcp", "0.0.0.0:"+strconv.Itoa(port))
-	if err != nil {
-		fmt.Printf("Failed to bind to port %d: %v\n", port, err)
-		os.Exit(1)
-	}
-	defer l.Close()
-	fmt.Printf("Server listening on port %d, file dir is: '%s'\n", port, *directory)
+	svr := server.MakeServer(port)
 
-	for {
-		conn, err := l.Accept()
-		if err != nil {
-			fmt.Printf("Error accepting connection: %v\n", err)
-			continue
-		}
-		go handleClient(conn, *directory)
-	}
-}
+	svr.Route(model.GET, "/", func(req server.HttpRequest) (*model.HttpResponse, error) {
+		return model.MakeResponse(model.OK, []byte{}), nil
+	})
 
-func handleClient(conn net.Conn, fileDir string) {
-	defer conn.Close()
-	fmt.Println("Connection accepted")
+	svr.Route(model.GET, "/echo/{echo}", func(req server.HttpRequest) (*model.HttpResponse, error) {
+		return model.MakePlainTextResponse(model.OK, req.PathParams["echo"]), nil
+	})
 
-	err := handleConnection(conn, fileDir)
-	if err != nil {
-		fmt.Printf("Error handling connection: %v\n", err)
-	}
-}
+	svr.Route(model.GET, "/user-agent", func(req server.HttpRequest) (*model.HttpResponse, error) {
+		userAgent := req.Request.Headers["user-agent"]
 
-func handleConnection(conn net.Conn, fileDir string) error {
-	request, err := model.ReadHttpRequest(conn)
-	var response *model.HttpResponse
-
-	if err != nil {
-		response = model.MakePlainTextResponse(model.BAD_REQUEST, err.Error())
-	} else {
-		verb, path := request.Verb, request.Path
-
-		if verb == model.GET && path == "/" {
-			response = model.MakeResponse(model.OK, []byte{})
-		} else if verb == model.GET && strings.HasPrefix(path, "/echo/") {
-			echo := path[6:]
-			response = model.MakePlainTextResponse(model.OK, echo)
-		} else if verb == model.GET && path == "/user-agent" {
-			userAgent := request.Headers["user-agent"]
-
-			if len(userAgent) > 0 {
-				response = model.MakePlainTextResponse(model.OK, userAgent[0].Value)
-			} else {
-				response = model.MakePlainTextResponse(model.BAD_REQUEST, "User-Agent header not found")
-			}
-		} else if strings.HasPrefix(path, "/files/") && fileDir != "" {
-			fileName := path[7:]
-			filePath := fileDir + fileName
-
-			switch verb {
-			case model.GET:
-				file, err := os.Stat(filePath)
-				if err != nil || file.IsDir() {
-					response = model.MakeResponse(model.NOT_FOUND, []byte{})
-				} else {
-					fileBytes, err := os.ReadFile(filePath)
-					if err != nil {
-						response = model.MakePlainTextResponse(model.INTERNAL_SERVER_ERROR, err.Error())
-					} else {
-						response = model.MakeFileResponse(fileBytes)
-					}
-				}
-			case model.POST:
-				fileBytes := request.Body
-
-				err = os.WriteFile(filePath, fileBytes, 0644)
-				if err != nil {
-					response = model.MakePlainTextResponse(model.INTERNAL_SERVER_ERROR, err.Error())
-				} else {
-					response = model.MakeResponse(model.CREATED, []byte{})
-				}
-			default:
-				response = model.MakeResponse(model.METHOD_NOT_ALLOWED, []byte{})
-			}
-
+		if len(userAgent) > 0 {
+			return model.MakePlainTextResponse(model.OK, userAgent[0].Value), nil
 		} else {
-			response = model.MakeResponse(model.NOT_FOUND, []byte{})
+			return model.MakePlainTextResponse(model.BAD_REQUEST, "User-Agent header not found"), nil
 		}
-	}
+	})
 
-	if request != nil {
-		response.CompressBody(*request)
-	}
-	_, err = conn.Write(response.WriteResponse())
-	if err != nil {
-		return fmt.Errorf("error writing response: %w", err)
-	}
+	svr.Route(model.GET, "/files/{fileName}", func(req server.HttpRequest) (*model.HttpResponse, error) {
+		filePath := *directory + req.PathParams["fileName"]
 
-	return nil
+		file, err := os.Stat(filePath)
+		if err != nil || file.IsDir() {
+			return model.MakeResponse(model.NOT_FOUND, []byte{}), nil
+		} else {
+			fileBytes, err := os.ReadFile(filePath)
+			if err != nil {
+				return model.MakePlainTextResponse(model.INTERNAL_SERVER_ERROR, err.Error()), nil
+			} else {
+				return model.MakeFileResponse(fileBytes), nil
+			}
+		}
+	})
+
+	svr.Route(model.POST, "/files/{fileName}", func(req server.HttpRequest) (*model.HttpResponse, error) {
+		filePath := *directory + req.PathParams["fileName"]
+
+		fileBytes := req.Request.Body
+
+		err := os.WriteFile(filePath, fileBytes, 0644)
+		if err != nil {
+			return model.MakePlainTextResponse(model.INTERNAL_SERVER_ERROR, err.Error()), nil
+		} else {
+			return model.MakeResponse(model.CREATED, []byte{}), nil
+		}
+	})
+
+	svr.Listen(func() {
+		fmt.Printf("Server listening on port %d, file dir is: '%s'\n", port, *directory)
+	}, func(err error) {
+		fmt.Printf("Failed to bind to port %d: %v\n", svr.ListenPort, err)
+		os.Exit(1)
+	})
 }

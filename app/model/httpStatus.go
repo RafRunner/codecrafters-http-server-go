@@ -10,6 +10,7 @@ const (
 	BAD_REQUEST           HttpStatus = 400
 	NOT_FOUND             HttpStatus = 404
 	METHOD_NOT_ALLOWED    HttpStatus = 405
+	UNPROCESSABLE_CONTENT HttpStatus = 422
 	INTERNAL_SERVER_ERROR HttpStatus = 500
 )
 
@@ -27,6 +28,8 @@ func (s *HttpStatus) GetReasonPhrase() string {
 		return "Not Found"
 	case METHOD_NOT_ALLOWED:
 		return "Method Not Allowed"
+	case UNPROCESSABLE_CONTENT:
+		return "Unprocessable Content"
 	case INTERNAL_SERVER_ERROR:
 		return "Internal Server Error"
 	default:
