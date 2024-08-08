@@ -10,7 +10,7 @@ import (
 
 // HttpRequest represents an HTTP request.
 type HttpRequest struct {
-	Verb    HttpVerb
+	Method  HttpVerb
 	Path    string
 	Version HttpVersion
 	Headers map[string][]HeaderVal
@@ -81,7 +81,7 @@ func ReadHttpRequest(conn net.Conn) (*HttpRequest, error) {
 	}
 
 	return &HttpRequest{
-		Verb:    verb,
+		Method:  verb,
 		Path:    path,
 		Version: version,
 		Headers: headers,

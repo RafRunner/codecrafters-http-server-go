@@ -87,26 +87,36 @@ func handleConnection(conn net.Conn, server *HttpServer) error {
 	if err != nil {
 		response = model.MakePlainTextResponse(model.BAD_REQUEST, err.Error())
 	} else {
-		var matchedEndpoint *endpoint
-		var pathParams map[string]string
+		matchedEndpoints := make([]endpoint, 0)
 
 		for _, endpoint := range server.endpoints {
-			if request.Verb == endpoint.method {
-				if matches := endpoint.pathPattern.FindStringSubmatch(request.Path); matches != nil {
+			if endpoint.pathPattern.MatchString(request.Path) {
+				matchedEndpoints = append(matchedEndpoints, endpoint)
+			}
+		}
+
+		if len(matchedEndpoints) > 0 {
+			var matchedEndpoint *endpoint
+			var pathParams map[string]string
+
+			for _, endpoint := range matchedEndpoints {
+				if endpoint.method == request.Method {
 					matchedEndpoint = &endpoint
+					matches := endpoint.pathPattern.FindStringSubmatch(request.Path)
 					pathParams = extractPathParams(endpoint.pathPattern, matches)
 					break
 				}
 			}
-		}
 
-		if matchedEndpoint != nil {
-			response, err = matchedEndpoint.action(HttpRequest{
-				Request:    *request,
-				PathParams: pathParams,
-			})
-			if err != nil {
-				response = model.MakePlainTextResponse(model.INTERNAL_SERVER_ERROR, err.Error())
+			if matchedEndpoint != nil {
+				if response, err = matchedEndpoint.action(HttpRequest{
+					Request:    *request,
+					PathParams: pathParams,
+				}); err != nil {
+					response = model.MakePlainTextResponse(model.INTERNAL_SERVER_ERROR, err.Error())
+				}
+			} else {
+				response = model.MakeResponse(model.METHOD_NOT_ALLOWED, []byte{})
 			}
 		} else {
 			response = model.MakeResponse(model.NOT_FOUND, []byte{})
@@ -116,8 +126,7 @@ func handleConnection(conn net.Conn, server *HttpServer) error {
 	if request != nil {
 		response.CompressBody(*request)
 	}
-	_, err = conn.Write(response.WriteResponse())
-	if err != nil {
+	if _, err = conn.Write(response.WriteResponse()); err != nil {
 		return fmt.Errorf("error writing response: %w", err)
 	}
 

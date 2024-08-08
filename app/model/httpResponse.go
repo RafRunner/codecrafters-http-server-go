@@ -116,13 +116,11 @@ func compressGzip(data []byte) ([]byte, error) {
 	var buf bytes.Buffer
 	writer := gzip.NewWriter(&buf)
 
-	_, err := writer.Write(data)
-	if err != nil {
+	if _, err := writer.Write(data); err != nil {
 		return nil, fmt.Errorf("failed to write data to gzip writer: %w", err)
 	}
 
-	err = writer.Close()
-	if err != nil {
+	if err := writer.Close(); err != nil {
 		return nil, fmt.Errorf("failed to close gzip writer: %w", err)
 	}
 
